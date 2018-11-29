@@ -5,6 +5,11 @@
 
 using namespace std;
 
+enum OnlineState {
+	Offline = 0,
+	Online
+};
+
 //  EVENTS
 enum Event {
     None = 0,

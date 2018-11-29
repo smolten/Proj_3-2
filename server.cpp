@@ -39,18 +39,18 @@ struct session {
     time_t last_time; // The last time when the server receives a message
                       // from this client.
     string token;    // The token of this session.
-    int state;        // The state of this session, 0 is "OFFLINE", etc.
+    OnlineState state;        // The state of this session, 0 is "OFFLINE", etc.
 
 };
 
-
-map<string, session*> session_pointers_by_client_id;
-struct session *current_session;
-struct session* get_session_from_client_id(const char* client_id) {
-    return NULL;
+bool hasNumArguments(string buffer, int num) {
+    return count_char(buffer, '<') == num && count_char(buffer, '>') == num+1;
 }
-const char* get_client_id_from_string(const char* string) {
-    return "";
+
+map<string, session*> session_pointers_by_token;
+struct session *current_session;
+struct session* get_session_from_token(const char* token) {
+    return NULL;
 }
 
 bool validate_login(string username, string password) {
@@ -145,19 +145,17 @@ int main() {
         recv_buffer[strcspn(recv_buffer,"\r\n")] = 0; //remove newlines
         string recv_string(recv_buffer);
         printf("RECV: \"%s\"\n", recv_string.c_str());
-
-
-		// Now we know there is an event from the network
-        // TODO: Figure out which event and process it according to the
-        // current state of the session referred.
+		
+        time_t current_time = time(NULL);
 
         bool respond = false;
+        bool loggedOff = false;
         string username, password, ip, port;
         Event event = parse_event_from_string(recv_string);
         switch(event) {
             case Login:
                 username = parse_until(recv_string, '-');
-                if (count_char(recv_string, '<') != 3 || count_char(recv_string, '>') != 4) {
+                if (hasNumArguments(recv_string, 3) == false) {
                     respond = true;
                     sprintf(send_buffer, "server->%s#ERROR: Malformed login request.", username.c_str());
                     break;
@@ -172,11 +170,22 @@ int main() {
                     username.c_str(), password.c_str(), ip.c_str(), port.c_str());
                 if (validate_login(username, password) == false) {
                     respond = true;
-                    sprintf(send_buffer, "server->%s#ERROR: Bad User/ Pass combo.", username.c_str());
+                    sprintf(send_buffer, "server->%s#ERROR: Password does not match!", username.c_str());
                     break;
                 } else {
                     respond = true;
-                    sprintf(send_buffer, "server->%s#Success<%s>", username.c_str(), generate_token().c_str());
+                    string token = generate_token();
+                    sprintf(send_buffer, "server->%s#Success<%s>", username.c_str(), token.c_str());
+                    
+                    //Begin session
+                    current_session = (struct session*) malloc(sizeof(struct session));
+                    current_session->client_id = username;
+                    memcpy(&(current_session->client_addr), &cli_addr, sizeof(struct sockaddr_in));
+                    current_session->last_time = current_time;
+                    current_session->token = token;
+                    current_session->state = Online;
+                    session_pointers_by_token[token] = current_session;
+
                     break;
                 }
 
@@ -184,9 +193,24 @@ int main() {
             case Logoff:
                 username = parse_until(recv_string, '-');
                 printf("%s trying to log off\n", username.c_str());
-                printf("UNIMPL\n");
+
+                if (hasNumArguments(recv_string, 1)) {
+                    string token = parse_between(recv_string, '<', '>', 0);
+                    map<string, session*>::iterator it = session_pointers_by_token.find(token);
+                    if (it != session_pointers_by_token.end()) {
+                        loggedOff = true;
+                        session_pointers_by_token.erase(it);
+                        printf("%s successfully logged off\n", username.c_str());
+                    }
+                }
+                if (loggedOff == false) {
+                    printf("%s WAS NOT successfully logged off. Bad command or token not found.\n",
+                        username.c_str());
+                }
                 break;
             case Message:
+                username = parse_until(recv_string, '-');
+                //set time to now
                 printf("UNIMPL\n");
                 break;
             default:
@@ -200,37 +224,22 @@ int main() {
             printf("SENT: %s\n", send_buffer);
         }
 
-        client_id = get_client_id_from_string(recv_buffer);
-        current_session = get_session_from_client_id(client_id);
-        if (current_session != NULL) {
-            // Record the last time that this session is active.
-            current_session->last_time = time(NULL);
-
-            if (event == 0 /* login event */) {
-                if (current_session->state == 0 /* OFFLINE state */) {
-
-                    // TODO: take the corresponding action
-                } else if (current_session->state == 0) {
-
-                    // TODO: hand errors if the event happens in some state
-                    // that is not expected.
-
-                }
-
-            } else if (event == 0) {
-
-                // TODO: process other events
-
-            }
-        }
-
-        time_t current_time = time(NULL);
 
         // Now you may check the time of all clients. 
         // For each session, if the current time has passed 5 minutes plus 
         // the last time of the session, the session expires.
         // TODO: check session liveliness
+        for(map<string, session*>::iterator it = session_pointers_by_token.begin();
+            it != session_pointers_by_token.end();
+            it++) {
+            current_session = it->second;
 
+            double secondsDiff = difftime(current_time, current_session->last_time);
+            double fiveMinutes = 60 * 5;
+            if (secondsDiff > fiveMinutes) {
+                current_session->state = Offline;
+            }
+        }
 
     } // This is the end of the while loop
 

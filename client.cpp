@@ -26,6 +26,28 @@ void sigintHandler(void) {
 int get_semirandom_port_number() {
     return 32001 + rand() % 100;
 }
+void appendIpInfoToBuffer(char* buffer, int port) {
+    int len = 32;
+    char info[len];
+    sprintf(info, "<%s><%d>", "127.0.0.1", port);
+
+    int end = strcspn(buffer, "\r\n");
+    for (int i=0; i < len; i++) {
+        buffer[end+i] = info[i];
+    }
+    buffer[end+len] = '\0';
+}
+void appendTokenToBuffer(char* buffer, string token) {
+    int len = 8;
+    char info[len];
+    sprintf(info, "<%s>", token.c_str());
+
+    int end = strcspn(buffer, "\r\n");
+    for (int i=0; i < len; i++) {
+        buffer[end+i] = info[i];
+    }
+    buffer[end+len] = '\0';
+}
 
 
 int main() {
@@ -117,15 +139,7 @@ int main() {
                         }
 
                         printf("Attempting login...\n");
-
-                        char info[32];
-                        sprintf(info, "<%s><%d>", "127.0.0.1", port);
-                        //printf("Appending %s to login.\n", info);
-                        int end = strcspn(send_buffer,"\r\n");
-                        for (int i=0; i < 32; i++) {
-                            send_buffer[end+i] = info[i];
-                        }
-                        send_buffer[end+32] = '\0';
+                        appendIpInfoToBuffer(send_buffer, port);
                     } else {
                         printf("ERROR: You're already logged in.\n");
                     }
@@ -133,6 +147,7 @@ int main() {
                 case Logoff:
                     if (loggedIn) {
                         printf("You are now logged out.\n");
+                        appendTokenToBuffer(send_buffer, token);
                         token = "";
                         loggedIn = false;
                     } else {
