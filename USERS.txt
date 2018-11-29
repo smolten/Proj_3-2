@@ -1,0 +1,3 @@
+user	pass
+u 	p
+student	secret

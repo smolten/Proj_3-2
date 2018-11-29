@@ -1,0 +1,5 @@
+#!/bin/sh
+
+open -a Terminal ./client
+
+./server
