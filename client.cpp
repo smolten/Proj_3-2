@@ -37,10 +37,11 @@ void appendIpInfoToBuffer(char* buffer, int port) {
     }
     buffer[end+len] = '\0';
 }
-void appendTokenToBuffer(char* buffer, string token) {
-    int len = 8;
+void appendStringToBuffer(char* buffer, string str, bool wrap = true) {
+    int len = str.length()+2;
     char info[len];
-    sprintf(info, "<%s>", token.c_str());
+    const char* pattern = wrap ? "<%s>" : "%s";
+    sprintf(info, pattern, str.c_str());
 
     int end = strcspn(buffer, "\r\n");
     for (int i=0; i < len; i++) {
@@ -130,6 +131,7 @@ int main() {
             event = parse_event_from_string(send_buffer);
             
             bool send = true;
+            string message;
             switch(event) {
                 case Login:
                     if (loggedIn == false) {
@@ -147,7 +149,7 @@ int main() {
                 case Logoff:
                     if (loggedIn) {
                         printf("You are now logged out.\n");
-                        appendTokenToBuffer(send_buffer, token);
+                        appendStringToBuffer(send_buffer, token);
                         token = "";
                         loggedIn = false;
                     } else {
@@ -155,6 +157,15 @@ int main() {
                     }
                     break;
                 case Message:
+                    if (true){//loggedIn) {
+                        message = cut_after(send_buffer, '#');
+                        appendStringToBuffer(send_buffer, token);
+                        appendStringToBuffer(send_buffer, generate_token(10));
+                        appendStringToBuffer(send_buffer, message, false);
+                    } else {
+                        printf("ERROR: You are not logged in.\n");
+                        send = false;
+                    }
                     break;
                 case None: send = false; break;
                 case LoginSuccess: send = false; break;

@@ -49,7 +49,14 @@ bool hasNumArguments(string buffer, int num) {
 
 map<string, session*> session_pointers_by_token;
 struct session *current_session;
-struct session* get_session_from_token(const char* token) {
+struct session* get_session_from_username(string username) {
+    for(map<string, session*>::iterator it = session_pointers_by_token.begin();
+        it != session_pointers_by_token.end();
+        it++) {
+        session* s = it->second;
+        if (s->client_id == username)
+            return s;
+    }
     return NULL;
 }
 
@@ -73,14 +80,6 @@ bool validate_login(string username, string password) {
 
     usersFile.close();
     return matchFound;
-}
-string generate_token() {
-    string token = "";
-    for(int i=0; i<6; i++) {
-        char c = (char) (65+rand() % 28);
-        token += c;
-    }
-    return token;
 }
 
 int main() {
@@ -210,8 +209,39 @@ int main() {
                 break;
             case Message:
                 username = parse_until(recv_string, '-');
-                //set time to now
-                printf("UNIMPL\n");
+                if (hasNumArguments(recv_string, 2)) {
+                    string token = parse_between(recv_string, '<', '>', 0);
+                    string messageId = parse_between(recv_string, '<', '>', 1);
+                    map<string, session*>::iterator it = session_pointers_by_token.find(token);
+
+                    bool noSession = it == session_pointers_by_token.end();
+                    if (noSession == false) {
+                        current_session = it->second;
+                        current_session->last_time = current_time;
+                        memcpy(&cli_addr, &(current_session->client_addr), sizeof(struct sockaddr_in));
+                    }
+
+                    if ( noSession || username != it->second->client_id) {
+                        
+                        //Can't find speaker
+                        respond = true;
+                        sprintf(send_buffer, "server->%s#<%s><%s>ERROR: Username/Token error.\n", 
+                            username.c_str(), token.c_str(), messageId.c_str());
+                        printf("ERROR: Token error\n");
+                    } else {
+
+                        //Send message
+                        string target = parse_between(recv_string, '>', '#');
+                        session* target_session = get_session_from_username(target);
+                        if (target_session == NULL || target_session->state == Offline) {
+                            //Can't find target
+                            respond = true;
+                            sprintf(send_buffer, "server->%s#<%s><%s>ERROR: Destination offline.\n", 
+                                username.c_str(), token.c_str(), messageId.c_str());
+                            printf("ERROR: Destination offline\n");
+                        }
+                    }
+                }
                 break;
             default:
                 printf("UNIMPL\n");
@@ -221,7 +251,7 @@ int main() {
         if (respond) {
             ret = sendto(sockfd_tx, send_buffer, sizeof(send_buffer), 0, 
                     (struct sockaddr *) &cli_addr, sizeof(cli_addr));
-            printf("SENT: %s\n", send_buffer);
+            printf("SENT: \"%s\" to port %d\n", send_buffer, ntohs(cli_addr.sin_port));
         }
 
 
@@ -238,6 +268,7 @@ int main() {
             double fiveMinutes = 60 * 5;
             if (secondsDiff > fiveMinutes) {
                 current_session->state = Offline;
+                printf("%s timed out\n", current_session->client_id.c_str());
             }
         }
 

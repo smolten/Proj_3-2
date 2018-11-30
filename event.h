@@ -2,6 +2,7 @@
 #define EVENT_H
 
 #include <string>
+#include <sstream>
 
 using namespace std;
 
@@ -33,31 +34,43 @@ Event parse_event_from_string(string input) {
 
     //Login
     if ( contains( input, "->server#login<") ) {
-        printf("Login event detected\n");
+        //printf("Login event detected\n");
         return Login;
     }
 
     //Message
     if ( contains( input, "->server#logoff") || contains( input, "->server#logoff" )) {
-        printf("Logoff event detected\n");
+        //printf("Logoff event detected\n");
         return Logoff;
     }
 
     //Login Success
     if ( contains( input, "#Success<") ) {
-        printf("Login Success event detected\n");
+        //printf("Login Success event detected\n");
         return LoginSuccess;
     }
 
     //Logout
     if ( contains( input, "#") ) {
-        printf("Message event detected\n");
+        //printf("Message event detected\n");
         return Message;
     }
 
-    printf("No event detected\n");
+    //printf("No event detected\n");
     return None;
 }
+
+
+string generate_token(int length = 6) {
+    string token = "";
+    for(int i=0; i<length; i++) {
+        char c = (char) (65+rand() % 28);
+        token += c;
+    }
+    return token;
+}
+
+
 
 int count_char(string str, char c) {
 	int occ = 0;
@@ -93,5 +106,25 @@ string parse_between(string str, char c1, char c2, int i = 0) {
 	return substr;
 }
 
+string cut_after(char* buffer, char match) {
+	int start = strcspn(buffer, string(1, match).c_str());
+	if (start == -1)
+		return "";
+
+	//"After"
+	int i = start;
+	char c = buffer[i];
+	if (c == '\0') return "";
+	i++;
+
+	stringstream ss;
+	while (c != '\0') {
+		c = buffer[i];
+		buffer[i] = '\0';
+		ss << c;
+		i++;
+	}
+	return ss.str();
+}
 
 #endif
