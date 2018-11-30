@@ -239,6 +239,17 @@ int main() {
                             sprintf(send_buffer, "server->%s#<%s><%s>ERROR: Destination offline.\n", 
                                 username.c_str(), token.c_str(), messageId.c_str());
                             printf("ERROR: Destination offline\n");
+                        } else {
+                            //REady message
+                            string message = parse_between(recv_string, '>', '\0', 2);
+                            sprintf(send_buffer, "%s->%s#<%s><%s>%s\n", 
+                                username.c_str(), target.c_str(), target_session->token.c_str(), messageId.c_str(), message.c_str());
+
+                            //Send message
+                            struct sockaddr_in* targ_addr = &(target_session->client_addr);
+                            ret = sendto(sockfd_tx, send_buffer, sizeof(send_buffer), 0, 
+                                (struct sockaddr *)targ_addr, sizeof(struct sockaddr));
+                            printf("SENT: \"%s\" to port %d\n", send_buffer, ntohs(targ_addr->sin_port));
                         }
                     }
                 }

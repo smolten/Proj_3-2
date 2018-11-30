@@ -37,24 +37,15 @@ void appendIpInfoToBuffer(char* buffer, int port) {
     }
     buffer[end+len] = '\0';
 }
-void appendStringToBuffer(char* buffer, string str, bool wrap = true) {
-    int len = str.length()+2;
-    char info[len];
-    const char* pattern = wrap ? "<%s>" : "%s";
-    sprintf(info, pattern, str.c_str());
-
-    int end = strcspn(buffer, "\r\n");
-    for (int i=0; i < len; i++) {
-        buffer[end+i] = info[i];
-    }
-    buffer[end+len] = '\0';
-}
 
 
 int main() {
 
     //Redirect close to custom function
     std::atexit(sigintHandler);
+
+    //Seed rand
+    srand(time(NULL));
 
     printf("Client starting...\n");
 

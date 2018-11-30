@@ -39,7 +39,7 @@ Event parse_event_from_string(string input) {
     }
 
     //Message
-    if ( contains( input, "->server#logoff") || contains( input, "->server#logoff" )) {
+    if ( contains( input, "->server#logoff") || contains( input, "->server#logout" )) {
         //printf("Logoff event detected\n");
         return Logoff;
     }
@@ -125,6 +125,18 @@ string cut_after(char* buffer, char match) {
 		i++;
 	}
 	return ss.str();
+}
+void appendStringToBuffer(char* buffer, string str, bool wrap = true) {
+    int len = str.length()+2;
+    char info[len];
+    const char* pattern = wrap ? "<%s>" : "%s";
+    sprintf(info, pattern, str.c_str());
+
+    int end = strcspn(buffer, "\r\n");
+    for (int i=0; i < len; i++) {
+        buffer[end+i] = info[i];
+    }
+    buffer[end+len] = '\0';
 }
 
 #endif
